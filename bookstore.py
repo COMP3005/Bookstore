@@ -2,7 +2,7 @@ import psycopg2
 
 # connect to database
 # note that Bookstore database will need to be created in Postgres and the password will need to be changed to your master password
-conn = psycopg2.connect("dbname=Bookstore user=postgres password=WuQinFang-0418")
+conn = psycopg2.connect("dbname=Bookstore user=postgres password=PASSWORD")
 
 def initialize():
     #all initial ddl and dml statements to create the database
