@@ -147,8 +147,17 @@ def main():
     # display options menu 
     if (username == "admin"):
         print("Successfully signed in as Admin!")
-
-
+        selection = adminMenu()
+        if (selection == "0"):
+            print("Logging out...")
+            exit()
+        elif (selection == "1"):
+            print("Adding book")
+            attributes = input("Enter the book details in the following format: isbn,name,price,stock,royalty,numPages,publisherID \n") #assuming everything is entered in the correct format
+            attributesList = attributes.split(",")
+            addBook(attributesList)
+        elif (selection == "2"):
+            print("Removing book")
     else:
         select = "SELECT fName, lName FROM Users WHERE uid = %s"
         cursor = conn.cursor()
@@ -179,6 +188,75 @@ def usernameValid(username):
     # if the username (id) doesn't exist in the database, return false
     cursor.close()
     return False
+
+def findPublisher(pubID):
+    pub = None
+    select = "SELECT * FROM Publisher WHERE pubID = %s"
+    cursor = conn.cursor()
+    cursor.execute(select, (pubID,))
+    
+    # if a publisher exists, then we return all the attributes of that publisher, otherwise return None.
+    if (cursor.rowcount == 1):
+        pub = cursor.fetchone()
+
+    cursor.close()
+    return pub
+
+def findBook(isbn):
+    book = None
+    select = "SELECT * FROM Book WHERE isbn = %s"
+    cursor = conn.cursor()
+    cursor.execute(select, (isbn,))
+    
+    # if a book exists, then we return all the attributes of that publisher, otherwise return None.
+    if (cursor.rowcount == 1):
+        book = cursor.fetchone()
+
+    cursor.close()
+    return book  
+
+
+def normalMenu():
+    return
+
+def adminMenu():
+    print("0. Log out")
+    print("1. Add book")
+    print("2. Remove book")
+    selection = input("Select an option from the menu: ")
+    #error checking
+    return selection
+
+def addBook(attributeList):
+    #check if publisher exists
+    if (findPublisher(attributeList[6])) is None:
+        addPublisher(attributeList[6])
+        
+    #adding books to the bookstore database
+    if (findBook(attributeList[0])) is None:
+        insert = "INSERT INTO Book VALUES (%s, %s, %s, %s, %s, %s, %s)"
+        cursor = conn.cursor()
+        #cursor.execute(insert, (int(attributeList[0]), attributeList[1], float(attributeList[2]), int(attributeList[3]), float(attributeList[4]), int(attributeList[5]), int(attributeList[6])))
+        cursor.execute(insert, (attributeList[0], attributeList[1], attributeList[2], attributeList[3], attributeList[4], attributeList[5], attributeList[6]))
+        cursor.close()
+        conn.commit()
+    else:
+        print("A book with this ISBN already exists in the database")  
+
+def addPublisher(pubID):
+    #check if publisher exists
+    print("Adding publisher")
+    attributes = input("Enter the publisher details in the following format: bankAcct,email,phone,address \n") #assuming everything is entered in the correct format
+    attributeList = attributes.split(",")
+        
+    #adding publisher to the bookstore database
+    insert = "INSERT INTO Publisher VALUES (%s, %s, %s, %s, %s)"
+    cursor = conn.cursor()
+    #cursor.execute(insert, (int(attributeList[0]), attributeList[1], float(attributeList[2]), int(attributeList[3]), float(attributeList[4]), int(attributeList[5]), int(attributeList[6])))
+    cursor.execute(insert, (pubID, attributeList[0], attributeList[1], attributeList[2], attributeList[3]))
+    cursor.close()
+    conn.commit()     
+    
 
 if __name__ == "__main__":
     initialize()
