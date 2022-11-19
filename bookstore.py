@@ -5,7 +5,7 @@ from datetime import date, timedelta
 # connect to database
 # note that Bookstore database will need to be created in Postgres and the password will need to be changed to your master password
 # make a note for the TAs that they do not enter too long values for INT types
-conn = psycopg2.connect("dbname=Bookstore user=postgres password=nazeeha")
+conn = psycopg2.connect("dbname=Bookstore user=postgres password=password")
 
 def initialize():
     #all initial ddl and dml statements to create the database
@@ -109,18 +109,83 @@ def main():
     # will change the system based on whether you are logged in as a user or an admin
     # Admin login info - Username: admin, Password: 4dmin!
     # User login info - Username: any valid username in the database. Use "new" to create a new user
+    username = login()
+
+    # display options menu 
+    if (username == "admin"):
+        print("Successfully signed in as Admin!")
+        selection = adminMenu()
+        while (selection != "0"):
+            if (selection == "1"):
+                print("Adding book")
+                attributes = input("Enter the book details in the following format: isbn,name,price,stock,royalty,numPages,publisherID \n") #assuming everything is entered in the correct format
+                print("**************************************************************************************************************")
+                attributesList = attributes.split(",")
+                addBook(attributesList)
+            elif (selection == "2"):
+                print("Removing book")
+                deleteISBN = input("Enter the isbn of the book you want to remove: ")
+                print("**************************************************************************************************************")
+                deleteBook(deleteISBN) 
+            #TODO: view reports option
+            selection = adminMenu()  
+            if (selection == "0"):
+                print("Logging out...\n")
+                break
+
+    else:
+        select = "SELECT fName, lName FROM Users WHERE uid = %s"
+        cursor = conn.cursor()
+        cursor.execute(select, (username,))
+        nameTuple = cursor.fetchone()
+        fullName = nameTuple[0] + " " + nameTuple[1] 
+        cursor.close()
+
+        print("Successfully signed in as: {}".format(fullName))
+        selection = normalMenu()
+        while (selection != "0"):
+            #TODO: search books by feature
+            #Add books to cart
+            if (selection == "2"):
+                isbn = input("Please enter the isbn of the books you want to order from the list above in comma separated format: isbn1,isbn2... \n") #assuming everything is entered in the correct format
+                quantity = input("Please enter the quantity of the books you want to order in the order of the isbns you entered: quantity1, quantity2... \n") #assuming everything is entered in the correct format
+                print("**********************************************************************************************")
+                isbnList = isbn.split(",")
+                quantityList = quantity.split(",")
+                addToCart(username,isbnList,quantityList)
+            #Display Cart
+            elif (selection == "3"):  
+                print("**********************************************************************************************") 
+                displayCart(username)
+            #Check Out / Place Order
+            elif (selection == "4"):  
+                print("**********************************************************************************************") 
+                placeOrder(username)
+            #Track Order
+            elif (selection == "5"):
+                print("**********************************************************************************************")
+                displayOrders(username)
+
+            selection = normalMenu()
+            if (selection == "0"):
+                print("Logging out...")
+                break
+    
+    return 0
+
+def login():
     username = input("Enter your username: ")
     while (not usernameValid(username)):
-        print("****************************************")
+        print("**************************************************************************************************************")
         print("Invalid Username - Please try again or use \"new\" to create a new account")
         username = input("Enter your username: ")
     if (username == "admin"):
         password = input("Password: ")
-        print("****************************************")
+        print("**************************************************************************************************************")
         while (not (password == "4dmin!")):
             print("Invalid password - Please try again")
             password = input("Password: ")
-            print("****************************************")
+            print("**************************************************************************************************************")
     elif (username == "new"):
         print("Creating new account:")
         # assume user's input will not exceed the length value set for these attributes in our relation
@@ -134,7 +199,7 @@ def main():
         while (usernameValid(uName)):
             print("Username taken - Please try again")
             uName = input("Enter your new username: ")
-            print("****************************************")
+            print("**************************************************************************************************************")
 
         #insert the new user into the database 
         insert = "INSERT INTO Users VALUES (%s, %s, %s, %s, %s)"
@@ -144,55 +209,10 @@ def main():
         conn.commit()
 
         print("New user added successfully!")
-        print("****************************************")
+        print("**************************************************************************************************************")
         username = uName
-
-    # display options menu 
-    #note for Evan - we want to keep displaying menu until logout
-    if (username == "admin"):
-        print("Successfully signed in as Admin!")
-        selection = adminMenu()
-        if (selection == "0"):
-            print("Logging out...")
-            exit()
-        elif (selection == "1"):
-            print("Adding book")
-            attributes = input("Enter the book details in the following format: isbn,name,price,stock,royalty,numPages,publisherID \n") #assuming everything is entered in the correct format
-            attributesList = attributes.split(",")
-            addBook(attributesList)
-        elif (selection == "2"):
-            print("Removing book")
-            deleteISBN = input("Enter the isbn of the book you want to remove: isbn\n")
-            deleteISBN = str(deleteISBN)
-            deleteBook(deleteISBN)   
-
-    else:
-        select = "SELECT fName, lName FROM Users WHERE uid = %s"
-        cursor = conn.cursor()
-        cursor.execute(select, (username,))
-        nameTuple = cursor.fetchone()
-        fullName = nameTuple[0] + " " + nameTuple[1] 
-
-        print("Successfully signed in as: {}".format(fullName))
-        selection = normalMenu()
-        if (selection == "0"):
-            print("Logging out...")
-            exit()
-        elif (selection == "2"):
-            print("Displaying books...")
-            displayBooks()
-            isbn = input("Please enter the isbn of the books you want to order from the list above in comma separated format: isbn1,isbn2 \n") #assuming everything is entered in the correct format
-            quantity = input("Please enter the quantity of the books you want to order in the order of the isbns you entered: quantity1, quantity2 \n") #assuming everything is entered in the correct format
-            isbnList = isbn.split(",")
-            quantityList = quantity.split(",")
-            addToCart(username,isbnList,quantityList)
-        elif (selection == "3"):   
-            print("Tracking your orders...")
-            #note for Evan - just displaying the orders for this user from order table??
-            displayOrder(username)
-        cursor.close()
     
-    return 0
+    return username
 
 def usernameValid(username):
     select = "SELECT * FROM Users WHERE uid = %s"
@@ -251,12 +271,13 @@ def findBook(isbn):
     cursor.close()
     return book  
 
-
 def normalMenu():
     print("0. Log out")
     print("1. Search books")
-    print("2. Order Books")
-    print("3. Track Orders")
+    print("2. Add Books to Cart")
+    print("3. Display Cart")
+    print("4. Check Out")
+    print("5. Track Orders")
     selection = input("Select an option from the menu: ")
     #error checking
     return selection
@@ -266,6 +287,7 @@ def adminMenu():
     print("1. Add book")
     print("2. Remove book")
     selection = input("Select an option from the menu: ")
+    print("**************************************************************************************************************")
     #error checking
     return selection
 
@@ -279,37 +301,31 @@ def addBook(attributeList):
         insert = "INSERT INTO Book VALUES (%s, %s, %s, %s, %s, %s, %s)"
         cursor = conn.cursor()
         cursor.execute(insert, (attributeList[0], attributeList[1], attributeList[2], attributeList[3], attributeList[4], attributeList[5], attributeList[6]))
-        print("The following book has been successfully added:")
-        selectBook = "select * from Book where isbn=%s"
+        #TODO: add records to the authorOf and genres tables
+        selectBook = "SELECT * FROM Book WHERE isbn=%s"
         cursor.execute(selectBook, (attributeList[0],))
-        bookRecords = cursor.fetchall();
-        for i in bookRecords:
-            print("**************************************************************************************************************")
-            print("ISBN:", i[0], "Name: ", i[1], "Price: ", i[2], "Stock: ", i[3], "Royalty: ", i[4], "NumPages: ", i[5], "Publisher: ", i[6]) 
-            print("**************************************************************************************************************")
-        """"
-        authID = input("Please enter the authIDs of this book in comma-separated format: authID1,authID2 \n") #assuming everything is entered in the correct format
-        authIDList = authID.split(",")
-        addAuthor(attributeList[0],authIDList) 
-        """
+        bookRecords = cursor.fetchone()
+
+        print("The following book has been successfully added:")
+        print("ISBN: {} | Name: {} | Price: {} | Stock: {} | Royalty: {} | NumPages: {} | Publisher: {}".format(bookRecords[0], bookRecords[1], bookRecords[2], bookRecords[3], bookRecords[4], bookRecords[5], bookRecords[6])) 
+        print("**************************************************************************************************************")
+
         cursor.close()
         conn.commit()
-        
-        
+           
     else:
         print("A book with this ISBN already exists in the database")
         
-
 def deleteBook(deleteISBN):
     if (findBook(deleteISBN)) is None:
         print("No book with such ISBN exists, check the ISBN again")
         
     else:
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM Book WHERE isbn=%s", (deleteISBN,)) # not deleting the publisher cause that publisher might have other books
-        print("The book with ISBN: " + deleteISBN +" has been deleted successfully")
-        print("Remaining books in the bookstore:")
-        displayBooks()
+        cursor.execute("DELETE FROM Book WHERE isbn=%s", (deleteISBN,)) 
+        #TODO: need to delete book from genres, authorOf, and all user carts
+        print("The book with ISBN " + deleteISBN + " was successfully deleted")
+        print("**************************************************************************************************************")
         cursor.close()
         conn.commit()
         
@@ -326,12 +342,10 @@ def addPublisher(pubID):
     cursor.execute(insert, (pubID, attributeList[0], attributeList[1], attributeList[2], attributeList[3]))
     selectPublisher = "select * from Publisher where pubID=%s"
     cursor.execute(selectPublisher, (pubID,))
-    publisherRecords = cursor.fetchall();
-    print("The following publisher has been added successfully ...")
-    for i in publisherRecords:
-        print("**************************************************************************************************************")
-        print("PubID:", i[0], "BankAcct: ", i[1], "Email: ", i[2], "Phone: ", i[3], "Address: ", i[4]) 
-        print("**************************************************************************************************************")
+    publisherRecords = cursor.fetchone()
+    print("The following publisher has been successfully added:") 
+    print("PubID: {} | BankAcct: {} | Email: {} | Phone: {} | Address {}".format(publisherRecords[0], publisherRecords[1], publisherRecords[2], publisherRecords[3], publisherRecords[4])) 
+    print("**************************************************************************************************************")
         
     cursor.close()
     conn.commit()
@@ -354,63 +368,63 @@ def addAuthor(isbn,authIDList):
     cursor.close()
     conn.commit()
 
-def displayBooks():
-    
+#TODO: Add search filters
+def searchBooks(): 
     cursor = conn.cursor()
-    selectQuery = "select * from Book"
+    selectQuery = "SELECT * FROM Book"
     cursor.execute(selectQuery)
     bookRecords = cursor.fetchall()
     for i in bookRecords:
         print("**********************************************************************************************")
-        print("ISBN:", i[0], "Name: ", i[1], "Price: ", i[2], "Stock: ", i[3], "Royalty: ", i[4], "NumPages: ", i[5], "Publisher: ", i[6]) 
+        print("ISBN: {} | Name: {} | Price: {} | Stock: {} | NumPages: {} | Publisher: {}".format(i[0], i[1], i[2], i[3], i[5], i[6])) 
         print("**********************************************************************************************")
 
 def addToCart(username,isbnList,quantityList):
-
     #assuming correct isbn that exists in the database has been entered. ---- error checking?
-    #assuming the same user will not order the same book again. isbn and uid are pk in cart
+    #assuming the same user will not order the same book again.
     cursor = conn.cursor()
     for i in range (len(isbnList)):
         book = findBook(isbnList[i])
-        if (book[3] < int(quantityList[i])): #Evan: does this have to be a sql func or trigger? what if the user orders 6 books and there are 5 in stock, do we let them take 5? or none at all?
-            #should line 337 logic be implemented here or in order "The user can add as many books as they like to the cart?"
-            print("Sorry, there are only " + str(book[3]) + "remaining " + book[1] +" book with isbn: " + str(book[0]) + ". So this book could not be added to cart")
+        if (book[3] < int(quantityList[i])):
+            print("Sorry, there are only " + str(book[3]) + "of the following book in stock - " + book[1] +"  with isbn: " + str(book[0]))
         else:    
             insert = "INSERT INTO Has_In_Cart VALUES (%s, %s, %s)"
             cursor.execute(insert, (isbnList[i], username, quantityList[i]))
-    
-    selectQuery = "select * from Has_In_Cart"
-    cursor.execute(selectQuery)
-    cartRecords = cursor.fetchall();
-    if (len(cartRecords)>0):
-        print("Your cart currently looks like: ")
-        for i in cartRecords:
-            print("**********************************************************************************************")
-            print("ISBN: ", i[0], "UID:", i[1], "Quantity: ", i[2]) 
-            print("**********************************************************************************************") 
-
-        print("Are you ready to checkout?")
-        checkout = input("Please enter Y to proceed to checkout \n") 
-        #note for Evan - do we add a feature to go back and modify the cart?
-        #only registered users should be able to checkout.... but only registered users are allowed to look at the book store so should this be an extra feature?
-        if (checkout=="Y" or checkout =="y"):
-            #Note for Evan - doing nth with shipping and billing address?
-            #each isbn order has it's own order number even if it's from the same user
-            shippingAddress = input("Please enter your shipping address: ")
-            billingAddress = input("Please enter your billing address: ")
-            for i in cartRecords:
-                placeOrder(i[0],i[1],i[2])  
-        print("Congratulations, your order has been successfully placed!")           
+       
     cursor.close()
     conn.commit() 
-    #do we display the books in book database to show update in stock?  
-    return
 
-def placeOrder(isbn,username,quantity):
-    oID = ''
-    number = [0,1,2,3,4,5,6,7,8,9]
-    for i in range(4):
-        oID +=str(random.choice(number))
+def displayCart(username):
+    cursor = conn.cursor()
+    selectQuery = "SELECT * FROM Has_In_Cart WHERE uid=%s"
+    cursor.execute(selectQuery, (username,))
+    cartRecords = cursor.fetchall()
+    if (len(cartRecords)):
+        print("Your cart currently looks like: ")
+        for i in cartRecords:
+            print("ISBN: {} | Quantity: {}".format(i[0], i[2])) 
+        print("**********************************************************************************************")
+    cursor.close()
+    conn.commit()
+
+def assignOrderNumber():
+    cursor = conn.cursor()
+    select = """SELECT oNumber FROM Orders 
+                ORDER BY oNumber DESC 
+                LIMIT 1"""
+    cursor.execute(select)
+    result = cursor.fetchone()
+    cursor.close()
+
+    #if there are no rows in the table, assign order number 1
+    if (result is None):
+        return 1
+    #otherwise, add 1 to the highest order number and assign as the new order number
+    else:
+        return result + 1
+
+def placeOrder(username):
+    oNum = assignOrderNumber()
 
     #assuming actual ship date is before expected ship date
     receiveDate = date.today()
@@ -418,35 +432,46 @@ def placeOrder(isbn,username,quantity):
     aShipDate = receiveDate + (actualTemp - receiveDate) *random.random()
     expectedTemp = aShipDate + timedelta(days=10)
     eShipDate = aShipDate + (expectedTemp - aShipDate) *random.random()
-    status = "Order confirmed" #Evan: do we hard code this?
+    status = "Order confirmed" #come back to this if time permits
+
+    cursor = conn.cursor()
+    selectQuery = "SELECT * FROM Has_In_Cart WHERE uid=%s"
+    cursor.execute(selectQuery, (username,))
+    cart = cursor.fetchall()
+
     insert = "INSERT INTO Orders VALUES (%s, %s, %s, %s, %s, %s)"
     insertContains = "INSERT INTO Contains VALUES (%s, %s, %s)"
-    book = findBook(isbn)
-    newStock = book[3]-quantity
-    #check if this newStock is < threshold value and if it is then automatically place order for more
     updateBook = """UPDATE Book
                     SET stock = %s
                     WHERE isbn = %s"""
-    cursor = conn.cursor()
-    cursor.execute(insert, (oID, receiveDate, eShipDate, aShipDate, status, username))
-    cursor.execute(insertContains, (isbn, oID, quantity))
-    cursor.execute(updateBook, (newStock,isbn))
+
+    if (cart is None):
+        print("Cannot place order - no items in your cart")
+    else:
+        cursor.execute(insert, (oNum, receiveDate, eShipDate, aShipDate, status, username))
+        for item in cart:
+            book = findBook(item[0])
+            newStock = book[3]-item[2]
+            cursor.execute(insertContains, (item[0], oNum, item[2]))
+            cursor.execute(updateBook, (newStock, item[0]))
+    
+    #trigger function to check stock and place order if necessary
+
     cursor.close()
     conn.commit()     
 
-def displayOrder(username):
+def displayOrders(username):
     cursor = conn.cursor()
-    selectQuery = "select * from Orders where uid=%s"
+    selectQuery = "SELECT * FROM Orders WHERE uid=%s"
     cursor.execute(selectQuery, (username,))
-    orderRecords = cursor.fetchall();
-    if(len(orderRecords)==0):
-        print("You currently have no orders") 
-    else:       
+    orderRecords = cursor.fetchall()
+    if (len(orderRecords) == 0):
+        print("You currently have no active orders") 
+    else:  
+        print("Here are all your active orders:")     
         for i in orderRecords:
-            print("**********************************************************************************************")
-            print("oNum:", i[0], "Receive Date: ", i[1], "eShipDate: ", i[2], "aShipDate: ", i[3], "Status: ", i[4], "UID: ", i[5]) 
-            print("**********************************************************************************************")
-
+            print("oNum: {} | Received Date: {} | Expected Ship Date: {} | Actual Ship Date: {} | Status: {}".format(i[0], i[1], i[2], i[3], i[4])) 
+        print("**********************************************************************************************")
 
 if __name__ == "__main__":
     initialize()
