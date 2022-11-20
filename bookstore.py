@@ -5,7 +5,7 @@ from datetime import date, timedelta
 # connect to database
 # note that Bookstore database will need to be created in Postgres and the password will need to be changed to your master password
 # make a note for the TAs that they do not enter too long values for INT types
-conn = psycopg2.connect("dbname=Bookstore user=postgres password=password")
+conn = psycopg2.connect("dbname=Bookstore user=postgres password=nazeeha")
 
 def initialize():
     #all initial ddl and dml statements to create the database
@@ -119,14 +119,26 @@ def main():
             if (selection == "1"):
                 print("Adding book")
                 attributes = input("Enter the book details in the following format: isbn,name,price,stock,royalty,numPages,publisherID \n") #assuming everything is entered in the correct format
+                genres = input("Enter the genre(s) of this new book separated by commas: genre1,genre2...\n")
+                authors = input("Enter the author id(s) of this new book separated by commas (must be existing authors): authorID1,authorID2...\n") #assuming we only enter author IDs of authors who already exist
                 print("**************************************************************************************************************")
                 attributesList = attributes.split(",")
+                genresList = genres.split(",")
+                authorList = authors.split(",")
                 addBook(attributesList)
+                addGenres(attributesList[0], genresList)
+                addAuthorOf(attributesList[0], authorList)
             elif (selection == "2"):
                 print("Removing book")
                 deleteISBN = input("Enter the isbn of the book you want to remove: ")
                 print("**************************************************************************************************************")
                 deleteBook(deleteISBN) 
+            elif (selection == "3"):
+                print("Adding authors")
+                authInfo = input("Please enter the following author information: authorID,firstName,lastName\n")
+                authList = authInfo.split(",")
+                addAuthor(authList)
+                print("**************************************************************************************************************")   
             #TODO: view reports option
             selection = adminMenu()  
             if (selection == "0"):
@@ -165,6 +177,10 @@ def main():
             elif (selection == "5"):
                 print("**********************************************************************************************")
                 displayOrders(username)
+            elif (selection == "6"):
+                oNum = input("Please enter the order number of the order you want to view: ")
+                print("**********************************************************************************************")
+                viewOrder(oNum,username)    
 
             selection = normalMenu()
             if (selection == "0"):
@@ -278,6 +294,7 @@ def normalMenu():
     print("3. Display Cart")
     print("4. Check Out")
     print("5. Track Orders")
+    print("6. View Order Details")
     selection = input("Select an option from the menu: ")
     #error checking
     return selection
@@ -286,6 +303,7 @@ def adminMenu():
     print("0. Log out")
     print("1. Add book")
     print("2. Remove book")
+    print("3. Add author")
     selection = input("Select an option from the menu: ")
     print("**************************************************************************************************************")
     #error checking
@@ -315,7 +333,17 @@ def addBook(attributeList):
            
     else:
         print("A book with this ISBN already exists in the database")
-        
+
+def addGenres(isbn, genreList):
+    cursor = conn.cursor()
+
+    for i in range(len(genreList)):
+        insert = "INSERT INTO Book_Genre VALUES (%s, %s)"
+        cursor.execute(insert, (isbn, genreList[i]))
+
+    cursor.close()
+    conn.commit()
+
 def deleteBook(deleteISBN):
     if (findBook(deleteISBN)) is None:
         print("No book with such ISBN exists, check the ISBN again")
@@ -340,7 +368,7 @@ def addPublisher(pubID):
     cursor = conn.cursor()
     #cursor.execute(insert, (int(attributeList[0]), attributeList[1], float(attributeList[2]), int(attributeList[3]), float(attributeList[4]), int(attributeList[5]), int(attributeList[6])))
     cursor.execute(insert, (pubID, attributeList[0], attributeList[1], attributeList[2], attributeList[3]))
-    selectPublisher = "select * from Publisher where pubID=%s"
+    selectPublisher = "SELECT * FROM Publisher where pubID=%s"
     cursor.execute(selectPublisher, (pubID,))
     publisherRecords = cursor.fetchone()
     print("The following publisher has been successfully added:") 
@@ -350,23 +378,30 @@ def addPublisher(pubID):
     cursor.close()
     conn.commit()
 
-def addAuthor(isbn,authIDList):  
+def addAuthor(authList):  
     cursor = conn.cursor()    
-    for i in range(len(authIDList)):
-        author = findAuthor(authIDList[i])  
-        if (author is None):
-            authFName = input("Please enter the first name of this author with authID: " + str(authIDList[i]))
-            authLName = input("Please enter the last name of this author with authID: " + str(authIDList[i]))
-            print("Inserting into authors table...")
-            insertAuthor = "INSERT INTO Author VALUES (%s, %s, %s)"
-            cursor.execute(insertAuthor, (authIDList[i], authFName, authLName,))
-                
-        insert = "INSERT INTO Author_Of VALUES (%s, %s)"
-        cursor.execute(insert, (isbn, authIDList[i]))
-          
-
+    author = findAuthor(authList[0])  
+    if (author is None):
+        insertAuthor = "INSERT INTO Author VALUES (%s, %s, %s)"
+        cursor.execute(insertAuthor, (authList[0], authList[1], authList[2])) 
+        selectAuthor = "SELECT * FROM Author where authorID=%s"
+        cursor.execute(selectAuthor, (authList[0],))
+        authorRecords = cursor.fetchone()
+        print("The following author has been successfully added:") 
+        print("AuthorID: {} | First Name: {} | Last Name: {}".format(authorRecords[0], authorRecords[1], authorRecords[2]))
+        print("**************************************************************************************************************")
+    else:
+        print("The author you are trying to add already exists")   
     cursor.close()
     conn.commit()
+
+def addAuthorOf(isbn, authorList):
+    cursor = conn.cursor() 
+    for i in range(len(authorList)):
+        insert = "INSERT INTO Author_Of VALUES (%s, %s)"
+        cursor.execute(insert, (authorList[i], isbn))
+    cursor.close()
+    conn.commit()    
 
 #TODO: Add search filters
 def searchBooks(): 
@@ -421,7 +456,7 @@ def assignOrderNumber():
         return 1
     #otherwise, add 1 to the highest order number and assign as the new order number
     else:
-        return result + 1
+        return result[0] + 1
 
 def placeOrder(username):
     oNum = assignOrderNumber()
@@ -472,6 +507,30 @@ def displayOrders(username):
         for i in orderRecords:
             print("oNum: {} | Received Date: {} | Expected Ship Date: {} | Actual Ship Date: {} | Status: {}".format(i[0], i[1], i[2], i[3], i[4])) 
         print("**********************************************************************************************")
+
+def printOrderDetails(oNum):
+    cursor = conn.cursor()
+    selectQuery = "SELECT * FROM Contains WHERE oNumber=%s"
+    cursor.execute(selectQuery, (oNum))
+    orderRecords = cursor.fetchone() 
+    print("Here are your order details: ")     
+    print("ISBN: {} | Order Number: {}".format(orderRecords[0], orderRecords[1])) 
+    print("**********************************************************************************************")          
+
+def viewOrder(oNum,username):
+    
+    cursor = conn.cursor()
+    selectQuery = "SELECT * FROM Orders WHERE uid=%s AND oNumber=%s"
+    cursor.execute(selectQuery, (username,oNum))
+    order = cursor.fetchone()
+    if order is None:
+        print("You do not have an order with the order number you entered, please try again.")
+    else:
+        print("oNum: {} | Received Date: {} | Expected Ship Date: {} | Actual Ship Date: {} | Status: {}".format(order[0], order[1], order[2], order[3], order[4])) 
+        print("**********************************************************************************************")
+        printOrderDetails(oNum)
+            
+           
 
 if __name__ == "__main__":
     initialize()
