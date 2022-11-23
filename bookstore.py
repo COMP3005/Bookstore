@@ -5,7 +5,7 @@ from datetime import date, timedelta
 # connect to database
 # note that Bookstore database will need to be created in Postgres and the password will need to be changed to your master password
 # make a note for the TAs that they do not enter too long values for INT types
-conn = psycopg2.connect("dbname=Bookstore user=postgres password=PASSWORD")
+conn = psycopg2.connect("dbname=Bookstore user=postgres password=WuQinFang-0418")
 
 def initialize():
     #all initial ddl and dml statements to create the database
@@ -165,7 +165,16 @@ def main():
                 authList = authInfo.split(",")
                 addAuthor(authList)
                 print("**************************************************************************************************************")   
-            #TODO: view reports option
+            #View reports option
+            elif (selection == "4"):
+                reportNumber, timeRange = adminSearchMenu()
+                if (reportNumber == "1"):
+                    salesExpenditureReport(timeRange)
+                elif (reportNumber == "2"):
+                    genreReport(timeRange)
+                elif (reportNumber == "3"):
+                    authorReport(timeRange)
+
             selection = adminMenu()  
             if (selection == "0"):
                 print("Logging out...\n")
@@ -183,29 +192,31 @@ def main():
         selection = normalMenu()
         while (selection != "0"):
             #TODO: search books by feature
+            if (selection == "1"):
+                print("Searching")
             #Add books to cart
             if (selection == "2"):
                 isbn = input("Please enter the isbn of the books you want to order from the list above in comma separated format: isbn1,isbn2... \n") #assuming everything is entered in the correct format
-                quantity = input("Please enter the quantity of the books you want to order in the order of the isbns you entered: quantity1, quantity2... \n") #assuming everything is entered in the correct format
-                print("**********************************************************************************************")
+                quantity = input("Please enter the quantity of the books you want to order in the order of the isbns you entered: quantity1,quantity2... \n") #assuming everything is entered in the correct format
+                print("**************************************************************************************************************") 
                 isbnList = isbn.split(",")
                 quantityList = quantity.split(",")
                 addToCart(username,isbnList,quantityList)
             #Display Cart
             elif (selection == "3"):  
-                print("**********************************************************************************************") 
+                print("**************************************************************************************************************")  
                 displayCart(username)
             #Check Out / Place Order
             elif (selection == "4"):  
-                print("**********************************************************************************************") 
+                print("**************************************************************************************************************")  
                 placeOrder(username)
             #Track Order
             elif (selection == "5"):
-                print("**********************************************************************************************")
+                print("**************************************************************************************************************") 
                 displayOrders(username)
             elif (selection == "6"):
                 oNum = input("Please enter the order number of the order you want to view: ")
-                print("**********************************************************************************************")
+                print("**************************************************************************************************************") 
                 viewOrder(oNum,username)    
 
             selection = normalMenu()
@@ -215,6 +226,7 @@ def main():
     
     return 0
 
+#Login and Authentication
 def login():
     username = input("Enter your username: ")
     while (not usernameValid(username)):
@@ -274,66 +286,27 @@ def usernameValid(username):
     cursor.close()
     return False
 
-def findPublisher(pubID):
-    pub = None
-    select = "SELECT * FROM Publisher WHERE pubID = %s"
-    cursor = conn.cursor()
-    cursor.execute(select, (pubID,))
-    
-    # if a publisher exists, then we return all the attributes of that publisher, otherwise return None.
-    if (cursor.rowcount == 1):
-        pub = cursor.fetchone()
-
-    cursor.close()
-    return pub
-
-def findAuthor(authID):
-    auth = None
-    select = "SELECT * FROM Author WHERE authorid = %s"
-    cursor = conn.cursor()
-    cursor.execute(select, (authID,))
-    
-    # if a publisher exists, then we return all the attributes of that publisher, otherwise return None.
-    if (cursor.rowcount == 1):
-        auth = cursor.fetchone()
-
-    cursor.close()
-    return auth    
-
-def findBook(isbn):
-    book = None
-    select = "SELECT * FROM Book WHERE isbn = %s"
-    cursor = conn.cursor()
-    cursor.execute(select, (isbn,))
-    
-    # if a book exists, then we return all the attributes of that book, otherwise return None.
-    if (cursor.rowcount == 1):
-        book = cursor.fetchone()
-
-    cursor.close()
-    return book  
-
-def normalMenu():
-    print("0. Log out")
-    print("1. Search books")
-    print("2. Add Books to Cart")
-    print("3. Display Cart")
-    print("4. Check Out")
-    print("5. Track Orders")
-    print("6. View Order Details")
-    selection = input("Select an option from the menu: ")
-    #error checking
-    return selection
-
+#Admin functions
 def adminMenu():
     print("0. Log out")
     print("1. Add book")
     print("2. Remove book")
     print("3. Add author")
+    print("4. View Reports")
     selection = input("Select an option from the menu: ")
     print("**************************************************************************************************************")
     #error checking
     return selection
+
+def adminSearchMenu():
+    print("1. Sales vs Expenditures")
+    print("2. Sales per Genre")
+    print("3. Sales per Author")
+    option = input("Select an option from the menu: ")
+    timeRange = input("Please specify the number of days from today which the report should include: ")
+    print("**************************************************************************************************************")
+    #error checking
+    return option, int(timeRange)
 
 def addBook(attributeList):
     #check if publisher exists
@@ -421,24 +394,61 @@ def addAuthor(authList):
     cursor.close()
     conn.commit()
 
-def addAuthorOf(isbn, authorList):
-    cursor = conn.cursor() 
-    for i in range(len(authorList)):
-        insert = "INSERT INTO Author_Of VALUES (%s, %s)"
-        cursor.execute(insert, (authorList[i], isbn))
-    cursor.close()
-    conn.commit()    
+def salesExpenditureReport(timeRange):
+    return
 
-#TODO: Add search filters
-def searchBooks(): 
+def genreReport(timeRange):
+    query = """
+        SELECT genre, SUM(quantity) AS totalQuantity, SUM(revenue) AS totalRevenue FROM (
+            SELECT *, (quantity * price * (1 - royalty)) AS revenue FROM Orders, Contains, Book, Book_Genre
+            WHERE Contains.isbn = Book.isbn AND Book_Genre.isbn = Book.isbn AND Orders.oNumber = Contains.oNumber AND Orders.rDate > CURRENT_DATE - %s
+        ) AS ByGenre
+        GROUP BY genre
+    """
+
     cursor = conn.cursor()
-    selectQuery = "SELECT * FROM Book"
-    cursor.execute(selectQuery)
-    bookRecords = cursor.fetchall()
-    for i in bookRecords:
-        print("**********************************************************************************************")
-        print("ISBN: {} | Name: {} | Price: {} | Stock: {} | NumPages: {} | Publisher: {}".format(i[0], i[1], i[2], i[3], i[5], i[6])) 
-        print("**********************************************************************************************")
+    cursor.execute(query, (timeRange,))
+    report = cursor.fetchall()
+    
+    print("Sales by Genre Report:")
+    for genreInfo in report:
+        print("Genre: {} | Num Books Sold: {} | Total Revenue: {} | Average Revenue per Book: {}".format(genreInfo[0], genreInfo[1], genreInfo[2], genreInfo[2] / genreInfo[1])) 
+    print("**************************************************************************************************************") 
+
+    cursor.close()
+
+def authorReport(timeRange):
+    query = """
+        SELECT ByAuthor.authorID, SUM(quantity) AS totalQuantity, SUM(revenue) AS totalRevenue FROM (
+            SELECT *, (quantity * price * (1 - royalty)) AS revenue FROM Orders, Contains, Book, Author_Of
+            WHERE Contains.isbn = Book.isbn AND Author_Of.isbn = Book.isbn AND Orders.oNumber = Contains.oNumber AND Orders.rDate > CURRENT_DATE - %s
+        ) AS ByAuthor
+        GROUP BY authorID
+    """
+
+    cursor = conn.cursor()
+    cursor.execute(query, (timeRange,))
+    report = cursor.fetchall()
+    
+    print("Sales by Author Report:")
+    for authorInfo in report:
+        print("Author ID: {} | Num Books Sold: {} | Total Revenue: {} | Average Revenue per Book: {}".format(authorInfo[0], authorInfo[1], authorInfo[2], authorInfo[2] / authorInfo[1])) 
+    print("**************************************************************************************************************") 
+
+    cursor.close()
+
+#User functions
+def normalMenu():
+    print("0. Log out")
+    print("1. Search books")
+    print("2. Add Books to Cart")
+    print("3. Display Cart")
+    print("4. Check Out")
+    print("5. Track Orders")
+    print("6. View Order Details")
+    selection = input("Select an option from the menu: ")
+    #error checking
+    return selection
 
 def addToCart(username,isbnList,quantityList):
     #assuming correct isbn that exists in the database has been entered. ---- error checking?
@@ -467,22 +477,6 @@ def displayCart(username):
         print("**********************************************************************************************")
     cursor.close()
     conn.commit()
-
-def assignOrderNumber():
-    cursor = conn.cursor()
-    select = """SELECT oNumber FROM Orders 
-                ORDER BY oNumber DESC 
-                LIMIT 1"""
-    cursor.execute(select)
-    result = cursor.fetchone()
-    cursor.close()
-
-    #if there are no rows in the table, assign order number 1
-    if (result is None):
-        return 1
-    #otherwise, add 1 to the highest order number and assign as the new order number
-    else:
-        return result[0] + 1
 
 def placeOrder(username):
     oNum = assignOrderNumber()
@@ -518,13 +512,9 @@ def placeOrder(username):
 
         #if the user orders then this should clear their cart
         cursor.execute("DELETE FROM Has_In_Cart WHERE uid=%s", (username,)) 
-        
-
-    
-    #trigger function to check stock and place order if necessary
 
     cursor.close()
-    conn.commit()     
+    conn.commit() 
 
 def displayOrders(username):
     cursor = conn.cursor()
@@ -538,18 +528,9 @@ def displayOrders(username):
         for i in orderRecords:
             print("oNum: {} | Received Date: {} | Expected Ship Date: {} | Actual Ship Date: {} | Status: {}".format(i[0], i[1], i[2], i[3], i[4])) 
         print("**********************************************************************************************")
+    cursor.close()
 
-def printOrderDetails(oNum):
-    cursor = conn.cursor()
-    selectQuery = "SELECT * FROM Contains WHERE oNumber=%s"
-    cursor.execute(selectQuery, (oNum))
-    orderRecords = cursor.fetchone() 
-    print("Here are your order details: ")     
-    print("ISBN: {} | Order Number: {}".format(orderRecords[0], orderRecords[1])) 
-    print("**********************************************************************************************")          
-
-def viewOrder(oNum,username):
-    
+def viewOrder(oNum,username):   
     cursor = conn.cursor()
     selectQuery = "SELECT * FROM Orders WHERE uid=%s AND oNumber=%s"
     cursor.execute(selectQuery, (username,oNum))
@@ -559,9 +540,92 @@ def viewOrder(oNum,username):
     else:
         print("oNum: {} | Received Date: {} | Expected Ship Date: {} | Actual Ship Date: {} | Status: {}".format(order[0], order[1], order[2], order[3], order[4])) 
         print("**********************************************************************************************")
-        printOrderDetails(oNum)
-            
-           
+        printOrderDetails(oNum)   
+
+#TODO: Add search filters
+def searchBooks(): 
+    cursor = conn.cursor()
+    selectQuery = "SELECT * FROM Book"
+    cursor.execute(selectQuery)
+    bookRecords = cursor.fetchall()
+    for i in bookRecords:
+        print("**********************************************************************************************")
+        print("ISBN: {} | Name: {} | Price: {} | Stock: {} | NumPages: {} | Publisher: {}".format(i[0], i[1], i[2], i[3], i[5], i[6])) 
+        print("**********************************************************************************************")
+
+#Helper functions
+def findPublisher(pubID):
+    pub = None
+    select = "SELECT * FROM Publisher WHERE pubID = %s"
+    cursor = conn.cursor()
+    cursor.execute(select, (pubID,))
+    
+    # if a publisher exists, then we return all the attributes of that publisher, otherwise return None.
+    if (cursor.rowcount == 1):
+        pub = cursor.fetchone()
+
+    cursor.close()
+    return pub
+
+def findAuthor(authID):
+    auth = None
+    select = "SELECT * FROM Author WHERE authorid = %s"
+    cursor = conn.cursor()
+    cursor.execute(select, (authID,))
+    
+    # if a publisher exists, then we return all the attributes of that publisher, otherwise return None.
+    if (cursor.rowcount == 1):
+        auth = cursor.fetchone()
+
+    cursor.close()
+    return auth    
+
+def findBook(isbn):
+    book = None
+    select = "SELECT * FROM Book WHERE isbn = %s"
+    cursor = conn.cursor()
+    cursor.execute(select, (isbn,))
+    
+    # if a book exists, then we return all the attributes of that book, otherwise return None.
+    if (cursor.rowcount == 1):
+        book = cursor.fetchone()
+
+    cursor.close()
+    return book  
+
+def addAuthorOf(isbn, authorList):
+    cursor = conn.cursor() 
+    for i in range(len(authorList)):
+        insert = "INSERT INTO Author_Of VALUES (%s, %s)"
+        cursor.execute(insert, (authorList[i], isbn))
+    cursor.close()
+    conn.commit()    
+
+def assignOrderNumber():
+    cursor = conn.cursor()
+    select = """SELECT oNumber FROM Orders 
+                ORDER BY oNumber DESC 
+                LIMIT 1"""
+    cursor.execute(select)
+    result = cursor.fetchone()
+    cursor.close()
+
+    #if there are no rows in the table, assign order number 1
+    if (result is None):
+        return 1
+    #otherwise, add 1 to the highest order number and assign as the new order number
+    else:
+        return result[0] + 1    
+
+def printOrderDetails(oNum):
+    cursor = conn.cursor()
+    selectQuery = "SELECT * FROM Contains WHERE oNumber=%s"
+    cursor.execute(selectQuery, (oNum))
+    orderRecords = cursor.fetchall() 
+    for i in range(len(orderRecords)):
+        book = findBook(orderRecords[i][0])
+        print("ISBN: {} | Title: {} | Quantity: {}".format(book[0], book[1], orderRecords[i][1]))   
+    print("**********************************************************************************************")               
 
 if __name__ == "__main__":
     initialize()
