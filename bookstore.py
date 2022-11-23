@@ -5,7 +5,7 @@ from datetime import date, timedelta
 # connect to database
 # note that Bookstore database will need to be created in Postgres and the password will need to be changed to your master password
 # make a note for the TAs that they do not enter too long values for INT types
-conn = psycopg2.connect("dbname=Bookstore user=postgres password=WuQinFang-0418")
+conn = psycopg2.connect("dbname=Bookstore user=postgres password=password")
 
 def initialize():
     #all initial ddl and dml statements to create the database
