@@ -5,7 +5,7 @@ from datetime import date, timedelta
 # connect to database
 # note that Bookstore database will need to be created in Postgres and the password will need to be changed to your master password
 # make a note for the TAs that they do not enter too long values for INT types
-conn = psycopg2.connect("dbname=Bookstore user=postgres password=nazeeha")
+conn = psycopg2.connect("dbname=Bookstore user=postgres password=PASSWORD")
 
 def initialize():
     #all initial ddl and dml statements to create the database
@@ -94,7 +94,33 @@ def initialize():
             FOREIGN KEY(oNumber) REFERENCES Orders(oNumber),
             FOREIGN KEY(isbn) REFERENCES Book(isbn)
         )
+        """,
         """
+        CREATE FUNCTION restock()
+        returns TRIGGER
+        language plpgsql
+        AS 
+        $$
+        BEGIN
+            IF NEW.stock < 10
+            THEN 
+                UPDATE Book
+                SET stock = NEW.stock + (
+                    SELECT sum(quantity) FROM Contains, Orders
+                    WHERE Contains.oNumber = Orders.oNumber AND Contains.isbn = NEW.isbn AND Orders.rDate > CURRENT_DATE - 30
+                )
+                WHERE Book.isbn = NEW.isbn;
+            END IF;
+            RETURN NULL;
+        END;
+        $$
+        """,
+        """
+        CREATE TRIGGER lowStock
+        AFTER UPDATE OF stock ON Book 
+        FOR EACH ROW
+        EXECUTE PROCEDURE restock()
+        """ 
         
     ]
     
@@ -489,6 +515,11 @@ def placeOrder(username):
             newStock = book[3]-item[2]
             cursor.execute(insertContains, (item[0], oNum, item[2]))
             cursor.execute(updateBook, (newStock, item[0]))
+
+        #if the user orders then this should clear their cart
+        cursor.execute("DELETE FROM Has_In_Cart WHERE uid=%s", (username,)) 
+        
+
     
     #trigger function to check stock and place order if necessary
 
