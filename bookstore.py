@@ -5,10 +5,10 @@ from datetime import date, timedelta
 # connect to database
 # note that Bookstore database will need to be created in Postgres and the password will need to be changed to your master password
 # make a note for the TAs that they do not enter too long values for INT types
-conn = psycopg2.connect("dbname=Bookstore user=postgres password=password")
+conn = psycopg2.connect("dbname=Bookstore user=postgres password=nazeeha")
 
+# Run initial ddl and dml statements to define the database plus triggers and functions for the database
 def initialize():
-    #all initial ddl and dml statements to create the database
     commands = [
         """
         CREATE TABLE IF NOT EXISTS Publisher (
@@ -82,6 +82,8 @@ def initialize():
             aShipDate DATE,
             status VARCHAR(20),
             uid VARCHAR(30),
+            shippingAddress VARCHAR(80),
+            billingAddress VARCHAR(80),
             FOREIGN KEY(uid) REFERENCES Users(uid)
         )
         """,
@@ -96,7 +98,7 @@ def initialize():
         )
         """,
         """
-        CREATE FUNCTION restock()
+        CREATE OR REPLACE FUNCTION restock()
         returns TRIGGER
         language plpgsql
         AS 
@@ -116,11 +118,11 @@ def initialize():
         $$
         """,
         """
-        CREATE TRIGGER lowStock
+        CREATE OR REPLACE TRIGGER lowStock
         AFTER UPDATE OF stock ON Book 
         FOR EACH ROW
         EXECUTE PROCEDURE restock()
-        """ 
+        """
         
     ]
     
@@ -137,11 +139,12 @@ def main():
     # User login info - Username: any valid username in the database. Use "new" to create a new user
     username = login()
 
-    # display options menu 
     if (username == "admin"):
         print("Successfully signed in as Admin!")
+
         selection = adminMenu()
         while (selection != "0"):
+            # Admin adds a new book
             if (selection == "1"):
                 print("Adding book")
                 attributes = input("Enter the book details in the following format: isbn,name,price,stock,royalty,numPages,publisherID \n") #assuming everything is entered in the correct format
@@ -154,18 +157,20 @@ def main():
                 addBook(attributesList)
                 addGenres(attributesList[0], genresList)
                 addAuthorOf(attributesList[0], authorList)
+            # Admin removes a book
             elif (selection == "2"):
                 print("Removing book")
                 deleteISBN = input("Enter the isbn of the book you want to remove: ")
                 print("**************************************************************************************************************")
                 deleteBook(deleteISBN) 
+            # Admin adds new authors
             elif (selection == "3"):
                 print("Adding authors")
                 authInfo = input("Please enter the following author information: authorID,firstName,lastName\n")
                 authList = authInfo.split(",")
                 addAuthor(authList)
                 print("**************************************************************************************************************")   
-            #View reports option
+            # Admin view reports option
             elif (selection == "4"):
                 reportNumber, timeRange = adminSearchMenu()
                 if (reportNumber == "1"):
@@ -175,6 +180,7 @@ def main():
                 elif (reportNumber == "3"):
                     authorReport(timeRange)
 
+            # Select a new menu option
             selection = adminMenu()  
             if (selection == "0"):
                 print("Logging out...\n")
@@ -189,12 +195,27 @@ def main():
         cursor.close()
 
         print("Successfully signed in as: {}".format(fullName))
-        selection = normalMenu()
+        selection = userMenu()
         while (selection != "0"):
-            #TODO: search books by feature
+            # User searches books by filters
             if (selection == "1"):
                 print("Searching")
-            #Add books to cart
+                search,filter = userSearchMenu()
+                # The corresponding search function is called 
+                if (search == "1"):
+                    searchByGenre(filter)
+                elif (search == "6"):
+                    searchBooks()  
+                elif (search == "2"):
+                    searchByTitle(filter)
+                elif (search == "3"):
+                    searchByISBN(filter)
+                elif (search == "4"):
+                    searchByAuthor(filter)
+                elif (search == "5"):
+                    searchByMaxPrice(filter) 
+                    
+            # User adds books to cart
             if (selection == "2"):
                 isbn = input("Please enter the isbn of the books you want to order from the list above in comma separated format: isbn1,isbn2... \n") #assuming everything is entered in the correct format
                 quantity = input("Please enter the quantity of the books you want to order in the order of the isbns you entered: quantity1,quantity2... \n") #assuming everything is entered in the correct format
@@ -202,31 +223,33 @@ def main():
                 isbnList = isbn.split(",")
                 quantityList = quantity.split(",")
                 addToCart(username,isbnList,quantityList)
-            #Display Cart
+            # User views their cart
             elif (selection == "3"):  
                 print("**************************************************************************************************************")  
                 displayCart(username)
-            #Check Out / Place Order
-            elif (selection == "4"):  
+            # User checks out / places an order
+            elif (selection == "4"):
+                shippingAddress = input("Please enter your shipping address: ")  
+                billingAddress = input("Please enter your billing address: ")  
                 print("**************************************************************************************************************")  
-                placeOrder(username)
-            #Track Order
+                placeOrder(username, shippingAddress, billingAddress)
+            # User tracks their orders
             elif (selection == "5"):
                 print("**************************************************************************************************************") 
                 displayOrders(username)
+            # User checks details of a specific order    
             elif (selection == "6"):
                 oNum = input("Please enter the order number of the order you want to view: ")
                 print("**************************************************************************************************************") 
                 viewOrder(oNum,username)    
-
-            selection = normalMenu()
+            # Select a new menu option
+            selection = userMenu()
             if (selection == "0"):
                 print("Logging out...")
                 break
-    
     return 0
 
-#Login and Authentication
+# Login and Authentication
 def login():
     username = input("Enter your username: ")
     while (not usernameValid(username)):
@@ -268,6 +291,7 @@ def login():
     
     return username
 
+# Checks if username is either "admin", "new", or an existing uid in the Users relation
 def usernameValid(username):
     select = "SELECT * FROM Users WHERE uid = %s"
     cursor = conn.cursor()
@@ -309,16 +333,15 @@ def adminSearchMenu():
     return option, int(timeRange)
 
 def addBook(attributeList):
-    #check if publisher exists
+    # check if publisher exists
     if (findPublisher(attributeList[6])) is None:
         addPublisher(attributeList[6])
             
-    #adding books to the bookstore database
+    # adding books to the bookstore database
     if (findBook(attributeList[0])) is None:
         insert = "INSERT INTO Book VALUES (%s, %s, %s, %s, %s, %s, %s)"
         cursor = conn.cursor()
         cursor.execute(insert, (attributeList[0], attributeList[1], attributeList[2], attributeList[3], attributeList[4], attributeList[5], attributeList[6]))
-        #TODO: add records to the authorOf and genres tables
         selectBook = "SELECT * FROM Book WHERE isbn=%s"
         cursor.execute(selectBook, (attributeList[0],))
         bookRecords = cursor.fetchone()
@@ -336,6 +359,7 @@ def addBook(attributeList):
 def addGenres(isbn, genreList):
     cursor = conn.cursor()
 
+    # Add genres of the book specified by the ISBN
     for i in range(len(genreList)):
         insert = "INSERT INTO Book_Genre VALUES (%s, %s)"
         cursor.execute(insert, (isbn, genreList[i]))
@@ -344,32 +368,38 @@ def addGenres(isbn, genreList):
     conn.commit()
 
 def deleteBook(deleteISBN):
+    # Assume that the admin does not delete a book that has already been ordered by a user
     if (findBook(deleteISBN)) is None:
         print("No book with such ISBN exists, check the ISBN again")
         
+    # Deleting a book from the bookstore also means that the book has to be deleted from a user's cart and from the Author_Of and Book_Genre relation   
     else:
         cursor = conn.cursor()
+        cursor.execute("DELETE FROM Has_In_Cart WHERE isbn=%s", (deleteISBN,))
+        cursor.execute("DELETE FROM Author_Of WHERE isbn=%s", (deleteISBN,))
+        cursor.execute("DELETE FROM Book_Genre WHERE isbn=%s", (deleteISBN,))
         cursor.execute("DELETE FROM Book WHERE isbn=%s", (deleteISBN,)) 
-        #TODO: need to delete book from genres, authorOf, and all user carts
         print("The book with ISBN " + deleteISBN + " was successfully deleted")
         print("**************************************************************************************************************")
         cursor.close()
         conn.commit()
         
 def addPublisher(pubID):
-    #check if publisher exists
+    # check if publisher exists
     print("Adding publisher")
     attributes = input("Enter the publisher details in the following format: bankAcct,email,phone,address \n") #assuming everything is entered in the correct format
     attributeList = attributes.split(",")
         
-    #adding publisher to the bookstore database
+    # adding publisher to the bookstore database
     insert = "INSERT INTO Publisher VALUES (%s, %s, %s, %s, %s)"
     cursor = conn.cursor()
-    #cursor.execute(insert, (int(attributeList[0]), attributeList[1], float(attributeList[2]), int(attributeList[3]), float(attributeList[4]), int(attributeList[5]), int(attributeList[6])))
     cursor.execute(insert, (pubID, attributeList[0], attributeList[1], attributeList[2], attributeList[3]))
+
+    # get information of the publisher that was just added
     selectPublisher = "SELECT * FROM Publisher where pubID=%s"
     cursor.execute(selectPublisher, (pubID,))
     publisherRecords = cursor.fetchone()
+
     print("The following publisher has been successfully added:") 
     print("PubID: {} | BankAcct: {} | Email: {} | Phone: {} | Address {}".format(publisherRecords[0], publisherRecords[1], publisherRecords[2], publisherRecords[3], publisherRecords[4])) 
     print("**************************************************************************************************************")
@@ -380,17 +410,23 @@ def addPublisher(pubID):
 def addAuthor(authList):  
     cursor = conn.cursor()    
     author = findAuthor(authList[0])  
+
+    # Add a new author to the database if the author does not already exist
     if (author is None):
         insertAuthor = "INSERT INTO Author VALUES (%s, %s, %s)"
         cursor.execute(insertAuthor, (authList[0], authList[1], authList[2])) 
+
+        # Get the information of the author that was just added
         selectAuthor = "SELECT * FROM Author where authorID=%s"
         cursor.execute(selectAuthor, (authList[0],))
         authorRecords = cursor.fetchone()
+
         print("The following author has been successfully added:") 
         print("AuthorID: {} | First Name: {} | Last Name: {}".format(authorRecords[0], authorRecords[1], authorRecords[2]))
         print("**************************************************************************************************************")
     else:
-        print("The author you are trying to add already exists")   
+        print("The author you are trying to add already exists")  
+
     cursor.close()
     conn.commit()
 
@@ -398,6 +434,8 @@ def salesExpenditureReport(timeRange):
     return
 
 def genreReport(timeRange):
+
+    # Get information on sales per genre within a given time period denoted by the timeRange, e.g. 30 days
     query = """
         SELECT genre, SUM(quantity) AS totalQuantity, SUM(revenue) AS totalRevenue FROM (
             SELECT *, (quantity * price * (1 - royalty)) AS revenue FROM Orders, Contains, Book, Book_Genre
@@ -418,6 +456,7 @@ def genreReport(timeRange):
     cursor.close()
 
 def authorReport(timeRange):
+    # Get information on sales per author within a given time period denoted by the timeRange, e.g. 30 days
     query = """
         SELECT ByAuthor.authorID, SUM(quantity) AS totalQuantity, SUM(revenue) AS totalRevenue FROM (
             SELECT *, (quantity * price * (1 - royalty)) AS revenue FROM Orders, Contains, Book, Author_Of
@@ -438,7 +477,7 @@ def authorReport(timeRange):
     cursor.close()
 
 #User functions
-def normalMenu():
+def userMenu():
     print("0. Log out")
     print("1. Search books")
     print("2. Add Books to Cart")
@@ -450,14 +489,34 @@ def normalMenu():
     #error checking
     return selection
 
+def userSearchMenu():
+    print("1. Search by book genre")
+    print("2. Search by book title")
+    print("3. Search by book ISBN")
+    print("4. Search by author name (Enter full name)")
+    print("5. Search by maximum price")
+    print("6. Search all books (no filter)")
+    option = input("Select an option from the menu: ")
+    if not (option == "6"):
+        filter = input("Enter search value: ")
+        if (option == "2"):
+            filter = "%" + filter + "%"
+    else:
+        filter = ""
+    print("**************************************************************************************************************")
+    return option, filter
+
 def addToCart(username,isbnList,quantityList):
-    #assuming correct isbn that exists in the database has been entered. ---- error checking?
-    #assuming the same user will not order the same book again.
+    # Assuming correct isbn that exists in the database has been entered.
+    # Assuming the same user will not order the same book again.
     cursor = conn.cursor()
+
+    # Add books specified by the ISBN to the user's cart if there are enough in the stock.
+    # Otherwise, don't let the user add any books to their cart.
     for i in range (len(isbnList)):
         book = findBook(isbnList[i])
         if (book[3] < int(quantityList[i])):
-            print("Sorry, there are only " + str(book[3]) + "of the following book in stock - " + book[1] +"  with isbn: " + str(book[0]))
+            print("Sorry, there are only " + str(book[3]) + " of the following book in stock - " + book[1] +"  with isbn: " + str(book[0]))
         else:    
             insert = "INSERT INTO Has_In_Cart VALUES (%s, %s, %s)"
             cursor.execute(insert, (isbnList[i], username, quantityList[i]))
@@ -467,34 +526,43 @@ def addToCart(username,isbnList,quantityList):
 
 def displayCart(username):
     cursor = conn.cursor()
+
+    # Get the cart details of the user specified by username
     selectQuery = "SELECT * FROM Has_In_Cart WHERE uid=%s"
     cursor.execute(selectQuery, (username,))
     cartRecords = cursor.fetchall()
+
     if (len(cartRecords)):
         print("Your cart currently looks like: ")
         for i in cartRecords:
             print("ISBN: {} | Quantity: {}".format(i[0], i[2])) 
-        print("**********************************************************************************************")
+        print("**************************************************************************************************************")
     cursor.close()
     conn.commit()
 
-def placeOrder(username):
+def placeOrder(username, shippingAddress, billingAddress):
     oNum = assignOrderNumber()
 
-    #assuming actual ship date is before expected ship date
-    receiveDate = date.today()
-    actualTemp = receiveDate + timedelta(days=30)
+    # get the current date and use it as the receive date
+    receiveDate = date.today() 
+    # Actual ship date is generated randomly based on current date and has to be within 30 days of the receive date. 
+    # Actual ship date is greater than current date.
+    actualTemp = receiveDate + timedelta(days=30) 
     aShipDate = receiveDate + (actualTemp - receiveDate) *random.random()
+    # Expected ship date is generated randomly based on actual ship date and has to be within 10 days of the actual ship date. 
+    # Expected ship date is greater than current date. 
+    # Assuming actual ship date is before expected ship date.
     expectedTemp = aShipDate + timedelta(days=10)
     eShipDate = aShipDate + (expectedTemp - aShipDate) *random.random()
-    status = "Order confirmed" #come back to this if time permits
+    status = "Order confirmed" 
 
     cursor = conn.cursor()
     selectQuery = "SELECT * FROM Has_In_Cart WHERE uid=%s"
     cursor.execute(selectQuery, (username,))
     cart = cursor.fetchall()
 
-    insert = "INSERT INTO Orders VALUES (%s, %s, %s, %s, %s, %s)"
+    # Order everything that is present in the user's cart.
+    insert = "INSERT INTO Orders VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
     insertContains = "INSERT INTO Contains VALUES (%s, %s, %s)"
     updateBook = """UPDATE Book
                     SET stock = %s
@@ -502,15 +570,17 @@ def placeOrder(username):
 
     if (cart is None):
         print("Cannot place order - no items in your cart")
+
+    # Update the stock based on the quantities ordered by the user of that particular book    
     else:
-        cursor.execute(insert, (oNum, receiveDate, eShipDate, aShipDate, status, username))
+        cursor.execute(insert, (oNum, receiveDate, eShipDate, aShipDate, status, username, shippingAddress, billingAddress))
         for item in cart:
             book = findBook(item[0])
             newStock = book[3]-item[2]
             cursor.execute(insertContains, (item[0], oNum, item[2]))
             cursor.execute(updateBook, (newStock, item[0]))
 
-        #if the user orders then this should clear their cart
+        # The cart is cleared once the user places an order
         cursor.execute("DELETE FROM Has_In_Cart WHERE uid=%s", (username,)) 
 
     cursor.close()
@@ -521,13 +591,15 @@ def displayOrders(username):
     selectQuery = "SELECT * FROM Orders WHERE uid=%s"
     cursor.execute(selectQuery, (username,))
     orderRecords = cursor.fetchall()
+
+    # Get the details of all orders placed by the user specified by username
     if (len(orderRecords) == 0):
         print("You currently have no active orders") 
     else:  
         print("Here are all your active orders:")     
         for i in orderRecords:
-            print("oNum: {} | Received Date: {} | Expected Ship Date: {} | Actual Ship Date: {} | Status: {}".format(i[0], i[1], i[2], i[3], i[4])) 
-        print("**********************************************************************************************")
+            print("oNum: {} | Received Date: {} | Expected Ship Date: {} | Actual Ship Date: {} | Status: {} | Shipping Address: {}".format(i[0], i[1], i[2], i[3], i[4], i[6])) 
+        print("**************************************************************************************************************")
     cursor.close()
 
 def viewOrder(oNum,username):   
@@ -535,23 +607,95 @@ def viewOrder(oNum,username):
     selectQuery = "SELECT * FROM Orders WHERE uid=%s AND oNumber=%s"
     cursor.execute(selectQuery, (username,oNum))
     order = cursor.fetchone()
+    
+    # Get the details of a specific order for the user specified by username
     if order is None:
         print("You do not have an order with the order number you entered, please try again.")
     else:
-        print("oNum: {} | Received Date: {} | Expected Ship Date: {} | Actual Ship Date: {} | Status: {}".format(order[0], order[1], order[2], order[3], order[4])) 
-        print("**********************************************************************************************")
+        print("oNum: {} | Received Date: {} | Expected Ship Date: {} | Actual Ship Date: {} | Status: {} | Shipping Address: {}".format(order[0], order[1], order[2], order[3], order[4], order[6])) 
+        print("**************************************************************************************************************")
         printOrderDetails(oNum)   
 
-#TODO: Add search filters
 def searchBooks(): 
     cursor = conn.cursor()
+    # Search books by no filters
     selectQuery = "SELECT * FROM Book"
     cursor.execute(selectQuery)
     bookRecords = cursor.fetchall()
+    cursor.close()
+
     for i in bookRecords:
-        print("**********************************************************************************************")
-        print("ISBN: {} | Name: {} | Price: {} | Stock: {} | NumPages: {} | Publisher: {}".format(i[0], i[1], i[2], i[3], i[5], i[6])) 
-        print("**********************************************************************************************")
+        print("ISBN: {} | Name: {} | Price: {} | Stock: {} | NumPages: {}".format(i[0], i[1], i[2], i[3], i[5])) 
+    print("**************************************************************************************************************")
+    
+def searchByGenre(filter):
+    cursor = conn.cursor()
+    # Search books by genre
+    selectQuery = """SELECT * FROM Book_Genre, Book
+                   WHERE Book_Genre.isbn = Book.isbn AND Book_Genre.genre=%s"""
+    cursor.execute(selectQuery, (filter,))
+    bookRecords = cursor.fetchall()
+    cursor.close()
+
+    for i in bookRecords:
+        print("ISBN: {} | Name: {} | Price: {} | Stock: {} | NumPages: {}".format(i[2], i[3], i[4], i[5], i[7])) 
+    print("**************************************************************************************************************")
+
+def searchByTitle(filter):
+    cursor = conn.cursor()
+    # Search books by book title
+    # BONUS FEATURE:  approximate search for books, (will find any books that contains the filter in their title)
+    selectQuery = """SELECT * FROM Book
+                   WHERE name LIKE %s"""
+    cursor.execute(selectQuery, (filter,))
+    bookRecords = cursor.fetchall()
+    cursor.close()
+
+    for i in bookRecords:
+        print("ISBN: {} | Name: {} | Price: {} | Stock: {} | NumPages: {}".format(i[0], i[1], i[2], i[3], i[5])) 
+    print("**************************************************************************************************************") 
+
+def searchByISBN(filter):
+    cursor = conn.cursor()
+    # Search books by book ISBN
+    selectQuery = """SELECT * FROM Book
+                   WHERE ISBN =  %s"""
+    cursor.execute(selectQuery, (filter,))
+    bookRecords = cursor.fetchall()
+    cursor.close()
+
+    for i in bookRecords:
+        print("ISBN: {} | Name: {} | Price: {} | Stock: {} | NumPages: {}".format(i[0], i[1], i[2], i[3], i[5])) 
+    print("**************************************************************************************************************") 
+
+def searchByAuthor(filter):
+    cursor = conn.cursor()
+    # Search books by author's full name
+    selectQuery = """SELECT * FROM (
+                        SELECT *, fName || ' ' || lName AS fullName FROM Book, Author_of, Author
+                        WHERE Book.isbn = Author_Of.isbn AND Author_Of.authorID = Author.authorID
+                    ) AS AuthorInfo                                     
+                   WHERE fullName =  %s"""
+    cursor.execute(selectQuery, (filter,))
+    bookRecords = cursor.fetchall()
+    cursor.close()
+
+    for i in bookRecords:
+        print("ISBN: {} | Name: {} | Price: {} | Stock: {} | NumPages: {}".format(i[0], i[1], i[2], i[3], i[5])) 
+    print("**************************************************************************************************************")  
+
+def searchByMaxPrice(filter):
+    cursor = conn.cursor()
+    # Search for books less than or equal to the price provided
+    selectQuery = """SELECT * FROM Book
+                   WHERE price <=  %s"""
+    cursor.execute(selectQuery, (filter,))
+    bookRecords = cursor.fetchall()
+    cursor.close()
+
+    for i in bookRecords:
+        print("ISBN: {} | Name: {} | Price: {} | Stock: {} | NumPages: {}".format(i[0], i[1], i[2], i[3], i[5])) 
+    print("**************************************************************************************************************") 
 
 #Helper functions
 def findPublisher(pubID):
@@ -573,7 +717,7 @@ def findAuthor(authID):
     cursor = conn.cursor()
     cursor.execute(select, (authID,))
     
-    # if a publisher exists, then we return all the attributes of that publisher, otherwise return None.
+    # if an author exists, then we return all the attributes of that author, otherwise return None.
     if (cursor.rowcount == 1):
         auth = cursor.fetchone()
 
@@ -603,6 +747,7 @@ def addAuthorOf(isbn, authorList):
 
 def assignOrderNumber():
     cursor = conn.cursor()
+    # get the highest order number that exists in the database
     select = """SELECT oNumber FROM Orders 
                 ORDER BY oNumber DESC 
                 LIMIT 1"""
