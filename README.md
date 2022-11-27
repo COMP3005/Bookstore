@@ -14,6 +14,7 @@ Upon verifying that you have met all the above requirements, the code can be run
 - To log in as admin, you need the username "admin" and password "4dmin!".<br />
 - To log in as a regular user, you must enter the user's username. The username must exist as a UID inside the Users relation.<br />
 - To create a new user (and add them to the Users relation), type "new" as the username then follow the prompts for creating a new user.
+
 <br /><br />You should now be able to use the menu corresponding to the user that you logged in as. Use the numbers before the option you want to select to interact with the menu, then follow the resulting prompts to use that menu option.
 
 **Notes on Implementation Assumptions:**<br />
