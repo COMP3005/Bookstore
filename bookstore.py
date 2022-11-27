@@ -82,8 +82,8 @@ def initialize():
             aShipDate DATE,
             status VARCHAR(20),
             uid VARCHAR(30),
-            shippingAddress VARCHAR(80),
-            billingAddress VARCHAR(80),
+            shippingAddress VARCHAR(80) NOT NULL,
+            billingAddress VARCHAR(80) NOT NULL,
             FOREIGN KEY(uid) REFERENCES Users(uid)
         )
         """,
