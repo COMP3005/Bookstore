@@ -1,4 +1,4 @@
-# Bookstore
+# Bookstore README
 A COMP3005 project by Nazeeha Harun (101139836) and Evan Li (101188718)
 
 **Overview:**<br />
