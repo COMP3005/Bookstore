@@ -18,4 +18,5 @@ username for the subsequent logins.
 
 **Notes on Implementation Assumptions:**<br />
 For the most part, only basic error checking has been provided in the code. We are assuming that the user/admin enters information in the exact formats requested and will not enter invalid data types or information that exceeds the size limits on our columns.<br /><br />
-In terms of the expenditure vs revenue report, we didn't count payments of royalties to publishers as an expense, but rather deducted these from revenue. In other words, the revenue earned from the sale of one book was (1 - royalty) * price.
+In terms of the expenditure vs revenue report, we didn't count payments of royalties to publishers as an expense, but rather deducted these from revenue. In other words, the revenue earned from the sale of one book was (1 - royalty) * price.<br /><br />
+A book cannot be deleted if a user has already ordered it, as this would destroy the existing order records. However, it may be deleted if the user has it in their cart, in which case it is simply removed from the cart.
