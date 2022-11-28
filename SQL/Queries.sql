@@ -16,7 +16,7 @@
     
     INSERT INTO Has_In_Cart VALUES (123, 'user1', 3);
     
-    INSERT INTO Orders VALUES (1, 2022-11-28, 2022-12-16, 2022-12-14, 'Order confirmed', 'user1', '123 abc road', '123 abc road');
+    INSERT INTO Orders VALUES (1, '2022-11-28', '2022-12-16', '2022-12-14', 'Order confirmed', 'user1', '123 abc road', '123 abc road');
     
     INSERT INTO Contains VALUES (123,1,3);    
 
