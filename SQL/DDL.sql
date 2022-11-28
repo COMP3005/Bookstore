@@ -67,3 +67,11 @@
             FOREIGN KEY(oNumber) REFERENCES Orders(oNumber),
             FOREIGN KEY(isbn) REFERENCES Book(isbn)
         );
+	CREATE TABLE IF NOT EXISTS Purchases (
+            pNum INT PRIMARY KEY,
+            pDate Date NOT NULL,
+            isbn INT NOT NULL,
+            quantity INT NOT NULL CHECK(quantity > 0),
+            purchasePrice NUMERIC(5,2) NOT NULL,
+            FOREIGN KEY(isbn) REFERENCES Book(isbn)
+        );
