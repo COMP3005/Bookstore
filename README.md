@@ -12,8 +12,8 @@ In order to run the code, you will need a Python 3.10 interpreter and a PGAdmin 
 Please note that you will need to manually create the "Bookstore" database in PostgreSQL prior to running this program. Additionally, the initialization function provides ONLY DDL STATEMENTS, so you must use the program to add data to the tables.<br /><br />
 Upon verifying that you have met all the above requirements, the code can be run in the terminal using "python bookstore.py". You will be asked to "log in" to the system as either an admin or an existing user, or create a new user as specified below. <br />
 - To log in as admin, you need the username "admin" and password "4dmin!".<br />
-- To log in as a regular user, you must enter the user's username. The username must exist as a UID inside the Users relation.<br />
-- To create a new user (and add them to the Users relation), type "new" as the username then follow the prompts for creating a new user.
+- To create a new user (and add them to the Users relation), type "new" as the username then follow the prompts for creating a new user. You need to follow this step the first time you run the program and want to login as a regular customer because the Users relation does not have any uid to begin with. Once you create a new user, it will be added to the Users relation.
+- For any subsequent log in as a regular user, you can enter the user's username. The username must exist as a UID inside the Users relation.<br />
 
 <br />You should now be able to use the menu corresponding to the user that you logged in as. Use the numbers before the option you want to select to interact with the menu, then follow the resulting prompts to use that menu option.
 
