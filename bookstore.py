@@ -394,7 +394,7 @@ def addBook(attributeList):
         # the specified quantity of the book needs to be purchased from the publishers
         purchase = "INSERT INTO Purchases VALUES (nextPurchaseNum(), CURRENT_DATE, %s, %s, %s)"
         buyPercent = random.randrange(75, 91)
-        cursor.execute(purchase, (bookRecords[0], bookRecords[3], 0.01 * buyPercent * bookRecords[2]))
+        cursor.execute(purchase, (bookRecords[0], bookRecords[3], 0.01 * buyPercent * float(bookRecords[2])))
         
         cursor.close()
         conn.commit()
