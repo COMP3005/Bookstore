@@ -19,6 +19,8 @@
     INSERT INTO Orders VALUES (1, '2022-11-28', '2022-12-16', '2022-12-14', 'Order confirmed', 'user1', '123 abc road', '123 abc road');
     
     INSERT INTO Contains VALUES (123,1,3);    
+    
+    INSERT INTO Author_Of VALUES (1, 123);
 
 -- UPDATE OPERATIONS
     
@@ -50,6 +52,7 @@
     SELECT fName, lName FROM Users WHERE uid = 'user1';
 
     -- Selects all data for the book matching the given ISBN
+    -- Also used by the user to search for books by ISBN
     SELECT * FROM Book WHERE isbn=123;
     
     -- Selects all data for the publisher matching the given pubID
@@ -128,5 +131,25 @@
     SELECT * FROM Book
     WHERE name LIKE '%A Book Title%';
     
+    -- Select all books from the new table where the author's full name matches the search term
+    SELECT * FROM (
+        -- Join Book, Author and Author_Of to combine book and author information
+        -- Also adds a new column containing the author's full name
+        SELECT *, fName || ' ' || lName AS fullName FROM Book, Author_of, Author
+        WHERE Book.isbn = Author_Of.isbn AND Author_Of.authorID = Author.authorID
+    ) AS AuthorInfo                                     
+    WHERE fullName = 'JK Rowling';
     
+    -- Selects all books that cost less than or equal to the amount provided
+    SELECT * FROM Book
+    WHERE price <= 600;
     
+    -- Selects the current largest order number from the Orders table
+    -- Used to assign order numbers for new orders
+    SELECT oNumber FROM Orders 
+    ORDER BY oNumber DESC 
+    LIMIT 1;
+    
+    -- Select all rows in Contains that belong to the given order number
+    -- Used to gather the details of a specific order to print to the user
+    SELECT * FROM Contains WHERE oNumber=1
