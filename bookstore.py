@@ -25,7 +25,7 @@ def initialize():
             name VARCHAR(50) NOT NULL,
             price NUMERIC(5,2) NOT NULL,
             stock INT NOT NULL CHECK(stock >= 0),
-            royalty NUMERIC(3,2) NOT NULL CHECK(royalty > 0 AND royalty < 1),
+            royalty NUMERIC(3,2) NOT NULL CHECK(royalty > 0 AND royalty < 0.1),
             numPages INT NOT NULL,
             publisher INT,
             FOREIGN KEY(publisher) REFERENCES Publisher(pubID) 
@@ -187,7 +187,7 @@ def main():
             # Admin adds a new book
             if (selection == "1"):
                 print("Adding book")
-                attributes = input("Enter the book details in the following format: isbn,name,price,stock,royalty,numPages,publisherID \n") #assuming everything is entered in the correct format
+                attributes = input("Enter the book details in the following format: isbn,name,price,stock,royalty(max 0.1),numPages,publisherID \n") #assuming everything is entered in the correct format
                 genres = input("Enter the genre(s) of this new book separated by commas: genre1,genre2...\n")
                 authors = input("Enter the author id(s) of this new book separated by commas (must be existing authors): authorID1,authorID2...\n") #assuming we only enter author IDs of authors who already exist
                 print("**************************************************************************************************************")
