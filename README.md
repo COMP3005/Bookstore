@@ -19,5 +19,6 @@ Upon verifying that you have met all the above requirements, the code can be run
 
 **Notes on Implementation Assumptions:**<br />
 For the most part, only basic error checking has been provided in the code. We are assuming that the user/admin enters information in the exact formats requested and will not enter invalid data types or information that exceeds the size limits on our columns.<br /><br />
+A book cannot be deleted if a user has already ordered it, as this would destroy the existing order records. However, it may be deleted if the user has it in their cart, in which case it is simply removed from the cart.<br /><br />
 In terms of the expenditure vs revenue report, we didn't count payments of royalties to publishers as an expense, but rather deducted these from revenue. In other words, the revenue earned from the sale of one book was (1 - royalty) * price.<br /><br />
-A book cannot be deleted if a user has already ordered it, as this would destroy the existing order records. However, it may be deleted if the user has it in their cart, in which case it is simply removed from the cart.
+We assume that during restocking the bookstore buys books in bulk from the publisher at a price of 75-90% of the sale price. We also limit the book royalty to 0.1 or 10% such that any purchase and sale of books is profitable for the bookstore (the purchase price + royalty does not exceed 100%)
