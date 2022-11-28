@@ -79,15 +79,31 @@
         WHERE Purchases.pDate > CURRENT_DATE - 30
     ) AS Expenditures;
     
+    -- From the new table, calculate the total number of books sold by summing each value in the quantity column
+    -- From the new table, calculate the total revenue by summing each value of the revenue column
+    -- We group these two values by genre in order to get this information per genre
     SELECT genre, SUM(quantity) AS totalQuantity, ROUND(SUM(revenue), 2) AS totalRevenue FROM (
-    SELECT *, (quantity * price * (1 - royalty)) AS revenue FROM Orders, Contains, Book, Book_Genre
-    WHERE Contains.isbn = Book.isbn AND Book_Genre.isbn = Book.isbn AND Orders.oNumber = Contains.oNumber AND Orders.rDate > CURRENT_DATE - 30
+        -- Join Orders, Contains, Book and Book_Genre to get information about the revenue of each book sold
+        -- Calculated using each row (tuple) in Contains and Book by taking into account quantity, price and royalty
+        -- The result for each row is outputted in a new column titled revenue
+        -- Orders column is joined to check the date of the sale
+        -- Book_Genre is joined to include the genres to group by later
+        SELECT *, (quantity * price * (1 - royalty)) AS revenue FROM Orders, Contains, Book, Book_Genre
+        WHERE Contains.isbn = Book.isbn AND Book_Genre.isbn = Book.isbn AND Orders.oNumber = Contains.oNumber AND Orders.rDate > CURRENT_DATE - 30
     ) AS ByGenre
     GROUP BY genre;
     
+    -- From the new table, calculate the total number of books sold by summing each value in the quantity column
+    -- From the new table, calculate the total revenue by summing each value of the revenue column
+    -- We group these two values by author ID in order to get this information per author
     SELECT ByAuthor.authorID, SUM(quantity) AS totalQuantity, ROUND(SUM(revenue), 2) AS totalRevenue FROM (
-    SELECT *, (quantity * price * (1 - royalty)) AS revenue FROM Orders, Contains, Book, Author_Of
-    WHERE Contains.isbn = Book.isbn AND Author_Of.isbn = Book.isbn AND Orders.oNumber = Contains.oNumber AND Orders.rDate > CURRENT_DATE - 30
+        -- Join Orders, Contains, Book and Author_Of to get information about the revenue of each book sold
+        -- Calculated using each row (tuple) in Contains and Book by taking into account quantity, price and royalty
+        -- The result for each row is outputted in a new column titled revenue
+        -- Orders column is joined to check the date of the sale
+        -- Author_Of is joined to include the author IDs to group by later
+        SELECT *, (quantity * price * (1 - royalty)) AS revenue FROM Orders, Contains, Book, Author_Of
+        WHERE Contains.isbn = Book.isbn AND Author_Of.isbn = Book.isbn AND Orders.oNumber = Contains.oNumber AND Orders.rDate > CURRENT_DATE - 30
     ) AS ByAuthor
     GROUP BY authorID;
     
