@@ -5,9 +5,9 @@ from datetime import date, timedelta
 # connect to database
 # note that Bookstore database will need to be created in Postgres and the password will need to be changed to your master password
 # make a note for the TAs that they do not enter too long values for INT types
-conn = psycopg2.connect("dbname=Bookstore user=postgres password=nazeeha")
+conn = psycopg2.connect("dbname=Bookstore user=postgres password=WuQinFang-0418")
 
-# Run initial ddl and dml statements to define the database plus triggers and functions for the database
+# Run initial ddl statements to define the database and set up triggers and functions for the database
 def initialize():
     commands = [
         """
@@ -98,6 +98,40 @@ def initialize():
         )
         """,
         """
+        CREATE TABLE IF NOT EXISTS Purchases (
+            pNum INT PRIMARY KEY,
+            pDate Date NOT NULL,
+            isbn INT NOT NULL,
+            quantity INT NOT NULL CHECK(quantity > 0),
+            purchasePrice NUMERIC(5,2) NOT NULL,
+            FOREIGN KEY(isbn) REFERENCES Book(isbn)
+        )
+        """,
+        """
+        CREATE OR REPLACE FUNCTION nextPurchaseNum()
+        returns INT
+        language plpgsql
+        AS 
+        $$
+        DECLARE
+            selected_pNum Purchases.pNum%type;
+        BEGIN
+            SELECT pNum FROM Purchases 
+            INTO selected_pNum
+            ORDER BY pNum DESC 
+            LIMIT 1;
+
+            IF FOUND
+            THEN 
+                RETURN selected_pNum + 1;
+            ELSE
+                RETURN 1;
+            END IF;
+            RETURN NULL;
+        END;
+        $$
+        """,
+        """
         CREATE OR REPLACE FUNCTION restock()
         returns TRIGGER
         language plpgsql
@@ -112,6 +146,13 @@ def initialize():
                     WHERE Contains.oNumber = Orders.oNumber AND Contains.isbn = NEW.isbn AND Orders.rDate > CURRENT_DATE - 30
                 )
                 WHERE Book.isbn = NEW.isbn;
+
+                INSERT INTO Purchases VALUES (nextPurchaseNum(), CURRENT_DATE, NEW.isbn, (
+                    SELECT sum(quantity) FROM Contains, Orders
+                    WHERE Contains.oNumber = Orders.oNumber AND Contains.isbn = NEW.isbn AND Orders.rDate > CURRENT_DATE - 30
+                ), NEW.price * 0.01 * (
+                    SELECT floor(random() * 16 + 75)
+                ));
             END IF;
             RETURN NULL;
         END;
@@ -123,7 +164,6 @@ def initialize():
         FOR EACH ROW
         EXECUTE PROCEDURE restock()
         """
-        
     ]
     
     cursor = conn.cursor()
@@ -174,7 +214,7 @@ def main():
             elif (selection == "4"):
                 reportNumber, timeRange = adminSearchMenu()
                 if (reportNumber == "1"):
-                    salesExpenditureReport(timeRange)
+                    revenueExpenditureReport(timeRange)
                 elif (reportNumber == "2"):
                     genreReport(timeRange)
                 elif (reportNumber == "3"):
@@ -430,14 +470,37 @@ def addAuthor(authList):
     cursor.close()
     conn.commit()
 
-def salesExpenditureReport(timeRange):
-    return
+def revenueExpenditureReport(timeRange):
+    revenueQuery = """
+        SELECT ROUND(SUM(revenue), 2) AS totalRevenue FROM (
+            SELECT (quantity * price * (1 - royalty)) AS revenue FROM Orders, Contains, Book
+            WHERE Contains.isbn = Book.isbn AND Orders.oNumber = Contains.oNumber AND Orders.rDate > CURRENT_DATE - %s
+        ) AS Revenues
+    """
+    expenditureQuery = """
+        SELECT SUM(expenditure) AS totalExpenditure FROM (
+            SELECT (quantity * purchasePrice) AS expenditure FROM Purchases
+            WHERE Purchases.pDate > CURRENT_DATE - %s
+        ) AS Expenditures
+    """
+
+    cursor = conn.cursor()
+    cursor.execute(revenueQuery, (timeRange,))
+    revenue = cursor.fetchone()[0]
+    cursor.execute(expenditureQuery, (timeRange,))
+    expenditure = cursor.fetchone()[0] + (100 * timeRange) #We assume that the bookstore has a daily fixed operations cost of $100
+
+    print("Revenue vs Expenditure Report:")
+    print("Revenue in the last {} days: ${} | Expenditure in the last {} days: ${}".format(timeRange, revenue, timeRange, expenditure))
+    print("**************************************************************************************************************") 
+
+    cursor.close()
 
 def genreReport(timeRange):
 
     # Get information on sales per genre within a given time period denoted by the timeRange, e.g. 30 days
     query = """
-        SELECT genre, SUM(quantity) AS totalQuantity, SUM(revenue) AS totalRevenue FROM (
+        SELECT genre, SUM(quantity) AS totalQuantity, ROUND(SUM(revenue), 2) AS totalRevenue FROM (
             SELECT *, (quantity * price * (1 - royalty)) AS revenue FROM Orders, Contains, Book, Book_Genre
             WHERE Contains.isbn = Book.isbn AND Book_Genre.isbn = Book.isbn AND Orders.oNumber = Contains.oNumber AND Orders.rDate > CURRENT_DATE - %s
         ) AS ByGenre
@@ -450,7 +513,7 @@ def genreReport(timeRange):
     
     print("Sales by Genre Report:")
     for genreInfo in report:
-        print("Genre: {} | Num Books Sold: {} | Total Revenue: {} | Average Revenue per Book: {}".format(genreInfo[0], genreInfo[1], genreInfo[2], genreInfo[2] / genreInfo[1])) 
+        print("Genre: {} | Num Books Sold: {} | Total Revenue: ${} | Average Revenue per Book: ${}".format(genreInfo[0], genreInfo[1], genreInfo[2], round(genreInfo[2] / genreInfo[1], 2))) 
     print("**************************************************************************************************************") 
 
     cursor.close()
@@ -458,7 +521,7 @@ def genreReport(timeRange):
 def authorReport(timeRange):
     # Get information on sales per author within a given time period denoted by the timeRange, e.g. 30 days
     query = """
-        SELECT ByAuthor.authorID, SUM(quantity) AS totalQuantity, SUM(revenue) AS totalRevenue FROM (
+        SELECT ByAuthor.authorID, SUM(quantity) AS totalQuantity, ROUND(SUM(revenue), 2) AS totalRevenue FROM (
             SELECT *, (quantity * price * (1 - royalty)) AS revenue FROM Orders, Contains, Book, Author_Of
             WHERE Contains.isbn = Book.isbn AND Author_Of.isbn = Book.isbn AND Orders.oNumber = Contains.oNumber AND Orders.rDate > CURRENT_DATE - %s
         ) AS ByAuthor
@@ -471,7 +534,7 @@ def authorReport(timeRange):
     
     print("Sales by Author Report:")
     for authorInfo in report:
-        print("Author ID: {} | Num Books Sold: {} | Total Revenue: {} | Average Revenue per Book: {}".format(authorInfo[0], authorInfo[1], authorInfo[2], authorInfo[2] / authorInfo[1])) 
+        print("Author ID: {} | Num Books Sold: {} | Total Revenue: ${} | Average Revenue per Book: ${}".format(authorInfo[0], authorInfo[1], authorInfo[2], round(authorInfo[2] / authorInfo[1], 2))) 
     print("**************************************************************************************************************") 
 
     cursor.close()
