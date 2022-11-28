@@ -390,7 +390,12 @@ def addBook(attributeList):
         print("The following book has been successfully added:")
         print("ISBN: {} | Name: {} | Price: {} | Stock: {} | Royalty: {} | NumPages: {} | Publisher: {}".format(bookRecords[0], bookRecords[1], bookRecords[2], bookRecords[3], bookRecords[4], bookRecords[5], bookRecords[6])) 
         print("**************************************************************************************************************")
-
+        
+        # the specified quantity of the book needs to be purchased from the publishers
+        purchase = "INSERT INTO Purchases VALUES (nextPurchaseNum(), CURRENT_DATE, %s, %s, %s)"
+        buyPercent = random.randrange(75, 91)
+        cursor.execute(purchase, (bookRecords[0], bookRecords[3], 0.01 * buyPercent * bookRecords[2]))
+        
         cursor.close()
         conn.commit()
            
