@@ -6,7 +6,7 @@ from datetime import date, timedelta
 # note that Bookstore database will need to be created in Postgres and the password will need to be changed to your master password
 # Note that you should not enter values which exceed the size limits defined
 # (ensure that your numbers can be stored in an INT variable and strings are below the lengths specified by the DDL)
-conn = psycopg2.connect("dbname=Bookstore user=postgres password=password")
+conn = psycopg2.connect("dbname=Bookstore user=postgres password=nazeeha")
 
 # Run initial ddl statements to define the database and set up triggers and functions for the database
 def initialize():
@@ -26,7 +26,7 @@ def initialize():
             name VARCHAR(50) NOT NULL,
             price NUMERIC(5,2) NOT NULL,
             stock INT NOT NULL CHECK(stock >= 0),
-            royalty NUMERIC(3,2) NOT NULL CHECK(royalty > 0 AND royalty < 0.1),
+            royalty NUMERIC(3,2) NOT NULL CHECK(royalty > 0 AND royalty <= 0.1),
             numPages INT NOT NULL,
             publisher INT,
             FOREIGN KEY(publisher) REFERENCES Publisher(pubID) 
@@ -104,8 +104,7 @@ def initialize():
             pDate Date NOT NULL,
             isbn INT NOT NULL,
             quantity INT NOT NULL CHECK(quantity > 0),
-            purchasePrice NUMERIC(5,2) NOT NULL,
-            FOREIGN KEY(isbn) REFERENCES Book(isbn)
+            purchasePrice NUMERIC(5,2) NOT NULL
         )
         """,
         """
@@ -121,7 +120,6 @@ def initialize():
             INTO selected_pNum
             ORDER BY pNum DESC 
             LIMIT 1;
-
             IF FOUND
             THEN 
                 RETURN selected_pNum + 1;
@@ -147,7 +145,6 @@ def initialize():
                     WHERE Contains.oNumber = Orders.oNumber AND Contains.isbn = NEW.isbn AND Orders.rDate > CURRENT_DATE - 30
                 )
                 WHERE Book.isbn = NEW.isbn;
-
                 INSERT INTO Purchases VALUES (nextPurchaseNum(), CURRENT_DATE, NEW.isbn, (
                     SELECT sum(quantity) FROM Contains, Orders
                     WHERE Contains.oNumber = Orders.oNumber AND Contains.isbn = NEW.isbn AND Orders.rDate > CURRENT_DATE - 30
