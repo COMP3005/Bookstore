@@ -10,7 +10,7 @@
             name VARCHAR(50) NOT NULL,
             price NUMERIC(5,2) NOT NULL,
             stock INT NOT NULL CHECK(stock >= 0),
-            royalty NUMERIC(3,2) NOT NULL CHECK(royalty > 0 AND royalty < 1),
+            royalty NUMERIC(3,2) NOT NULL CHECK(royalty > 0 AND royalty <= 0.1),
             numPages INT NOT NULL,
             publisher INT,
             FOREIGN KEY(publisher) REFERENCES Publisher(pubID) 
@@ -72,6 +72,5 @@
             pDate Date NOT NULL,
             isbn INT NOT NULL,
             quantity INT NOT NULL CHECK(quantity > 0),
-            purchasePrice NUMERIC(5,2) NOT NULL,
-            FOREIGN KEY(isbn) REFERENCES Book(isbn)
+            purchasePrice NUMERIC(5,2) NOT NULL
         );
