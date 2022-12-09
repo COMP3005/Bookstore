@@ -9,7 +9,7 @@ These files have been included per the assignment requirements. However, the fil
 
 **Running the code:**<br />
 In order to run the code, you will need a Python 3.10 interpreter and a PGAdmin account. Additionally, you will need to have the "psycopg2" library installed on your device - this can be done by using "pip3 install psycopg2" in your command line. **You will also need to update the password on line 9 in bookstore.py** to reflect your own PGAdmin master password.<br /><br />
-Please note that you will need to manually create the "Bookstore" database in PostgreSQL prior to running this program. Additionally, the initialization function provides ONLY DDL STATEMENTS, so **you must use the program to add data to the tables**.<br /><br />
+Please note that you will need to manually create the "Bookstore" database in PostgreSQL prior to running this program. Additionally, the initialization function provides **only DDL statements**, so **you must use the program to add data to the tables**.<br /><br />
 Upon verifying that you have met all the above requirements, the code can be run in the terminal using "python bookstore.py". You will be asked to "log in" to the system as either an admin or an existing user, or create a new user as specified below. <br />
 - To log in as admin, you need the username "admin" and password "4dmin!".<br />
 - To create a new user (and add them to the Users relation), type "new" as the username then follow the prompts for creating a new user. You need to follow this step the first time you run the program and want to log in as a regular customer because the Users relation does not have any uid to begin with. Once you create a new user, it will be added to the Users relation.
